@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes App</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.1.5/dist/sweetalert2.min.css">
+    <style>
+        body {
+            padding-top: 70px;
+        }
+
+        .container {
+            max-width: 1000px;
+        }
+
+        .notes-container {
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s;
+        }
+
+        .card:hover {
+            transform: scale(1.05);
+        }
+
+        h1 {
+            text-align: center;
+            background-color: #333;
+            color: #fff;
+            padding: 10px;
+            margin-bottom: 20px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+        }
+        
+        #addNoteForm {
+            height: 100vh;
+            padding: 20px;
+            margin-top: 50px;
+            margin-bottom: 20px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+            <div class="header text-white text-center fixed-top py-3">
+                <h1><span style="color: #ffc107">Notes</span>app</h1>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <div id="notesList" class="mb-5">
+            <div id="notes" class="row"></div>
+        </div>
+
+        <div id="addNoteForm" class="mt-5">
+            <h3 class="mt-5">Tambah Catatan</h3>
+            <form id="noteForm">
+                <div class="mb-3">
+                    <label for="titleInput" class="form-label mt-5">Judul</label>
+                    <input type="text" class="form-control" id="titleInput" required>
+                </div>
+                <div class="mb-3">
+                    <label for="tagsInput" class="form-label">Tags</label>
+                    <input type="text" class="form-control" id="tagsInput" required>
+                </div>
+                <div class="mb-3">
+                    <label for="bodyInput" class="form-label">Isi</label>
+                    <textarea class="form-control" id="bodyInput" rows="5" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Tambah</button>
+            </form>
+        </div>
+
+        <div id="editNoteForm" class="mb-5" style="display: none;">
+            <h3>Edit Catatan</h3>
+            <form id="editForm">
+                <input type="hidden" id="editNoteId">
+                <div class="mb-3">
+                    <label for="editTitleInput" class="form-label">Judul</label>
+                    <input type="text" class="form-control" id="editTitleInput" required>
+                </div>
+                <div class="mb-3">
+                    <label for="editTagsInput" class="form-label">Tags</label>
+                    <input type="text" class="form-control" id="editTagsInput" required>
+                </div>
+                <div class="mb-3">
+                    <label for="editBodyInput" class="form-label">Isi</label>
+                    <textarea class="form-control" id="editBodyInput" rows="5" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                <button type="button" id="cancelEditBtn" class="btn btn-secondary">Batal</button>
+            </form>
+        </div>
+    </div>
+
+    <a href="#addNoteForm" class="btn btn-dark btn-lg fixed-bottom p-2">Tambah Catatan</a>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.1.5/dist/sweetalert2.min.js"></script>
+    <script>
+        // Fungsi untuk mengambil catatan dari API
+        async function fetchNotes() {
+            try {
+                const response = await axios.get('http://13.250.41.144:9000/notes');
+                const notes = response.data.data.notes;
+                const notesList = document.getElementById('notes');
+                notesList.innerHTML = '';
+                notes.forEach(note => {
+                    const noteCard = document.createElement('div');
+                    noteCard.className = 'col-md-6 mb-3';
+                    const tags = note.tags ? (note.tags.length > 50 ? `${note.tags.substring(0, 50)}...` : note.tags) : '';
+                    noteCard.innerHTML = `
+                        <div class="card">
+                            <div class="card-body bg-body-secondary">
+                                <h3 class="card-title">${note.title.substring(0, 50)}</h3>
+                                <small class="card-text">${note.createdAt}</small>
+                                <p class="card-text">${note.body.substring(0, 200)}</p>
+                                <span class="badge bg-secondary">${tags}</span>
+                            </div>
+                            <div class="card-footer">
+                                <button class="btn btn-primary btn-sm" onclick="editNote('${note.id}')">Edit</button>
+                                <button class="btn btn-danger btn-sm" onclick="confirmDelete('${note.id}')">Hapus</button>
+                            </div>
+                        </div>
+                    `;
+                    notesList.appendChild(noteCard);
+                });
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        // Fungsi untuk menambah catatan menggunakan API
+        async function addNote() {
+            const titleInput = document.getElementById('titleInput');
+            const tagsInput = document.getElementById('tagsInput');
+            const bodyInput = document.getElementById('bodyInput');
+            const newNote = {
+                title: titleInput.value,
+                tags: tagsInput.value,
+                body: bodyInput.value
+            };
+
+            try {
+                const response = await axios.post('http://13.250.41.144:9000/notes', newNote);
+                console.log(response.data);
+                titleInput.value = '';
+                tagsInput.value = '';
+                bodyInput.value = '';
+                fetchNotes();
+
+                // Menampilkan pop-up animasi
+                Swal.fire({
+                    title: 'Sukses!',
+                    text: 'Catatan berhasil ditambahkan.',
+                    icon: 'success',
+                    timer: 2000,
+                    timerProgressBar: true,
+                    showConfirmButton: false
+                });
+
+                // Mengarahkan layar ke bagian paling atas
+                window.scrollTo(0, 0);
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        // Fungsi untuk menghapus catatan menggunakan API
+        async function deleteNote(id) {
+            try {
+                const response = await axios.delete(`http://13.250.41.144:9000/notes/${id}`);
+                console.log(response.data);
+                fetchNotes();
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        // Fungsi untuk menampilkan form edit catatan
+        function editNote(id) {
+            const notesList = document.getElementById('notesList');
+            const addNoteForm = document.getElementById('addNoteForm');
+            const editNoteForm = document.getElementById('editNoteForm');
+            const editTitleInput = document.getElementById('editTitleInput');
+            const editTagsInput = document.getElementById('editTagsInput');
+            const editBodyInput = document.getElementById('editBodyInput');
+            const editNoteId = document.getElementById('editNoteId');
+            const cancelEditBtn = document.getElementById('cancelEditBtn');
+
+            notesList.style.display = 'none';
+            addNoteForm.style.display = 'none';
+            editNoteForm.style.display = 'block';
+
+            // Ambil data catatan dari API berdasarkan ID
+            axios.get(`http://13.250.41.144:9000/notes/${id}`)
+                .then(response => {
+                    const note = response.data.data.note;
+                    editTitleInput.value = note.title;
+                    editTagsInput.value = note.tags;
+                    editBodyInput.value = note.body;
+                    editNoteId.value = note.id;
+                })
+                .catch(error => {
+                    console.error(error);
+                });
+
+            // Handler untuk menyimpan perubahan catatan
+            document.getElementById('editForm').addEventListener('submit', function (event) {
+                event.preventDefault();
+                const editedNote = {
+                    title: editTitleInput.value,
+                    tags: editTagsInput.value,
+                    body: editBodyInput.value
+                };
+                axios.put(`http://13.250.41.144:9000/notes/${editNoteId.value}`, editedNote)
+                    .then(response => {
+                        console.log(response.data);
+                        notesList.style.display = 'block';
+                        addNoteForm.style.display = 'block';
+                        editNoteForm.style.display = 'none';
+                        fetchNotes();
+                        Swal.fire({
+                            title: 'Sukses!',
+                            text: 'Perubahan catatan telah disimpan.',
+                            icon: 'success',
+                            timer: 2000,
+                            timerProgressBar: true,
+                            showConfirmButton: false
+                        });
+                    })
+                    .catch(error => {
+                        console.error(error);
+                    });
+            });
+
+            // Handler untuk membatalkan edit catatan
+            cancelEditBtn.addEventListener('click', function () {
+                notesList.style.display = 'block';
+                addNoteForm.style.display = 'block';
+                editNoteForm.style.display = 'none';
+            });
+        }
+
+        // Fungsi untuk menampilkan konfirmasi penghapusan catatan
+        function confirmDelete(id) {
+            Swal.fire({
+                title: 'Konfirmasi',
+                text: 'Apakah Anda yakin ingin menghapus catatan ini?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Hapus',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    deleteNote(id);
+                    Swal.fire(
+                        'Dihapus!',
+                        'Catatan telah dihapus.',
+                        'success'
+                    );
+                }
+            });
+        }
+
+        // Handler untuk menambah catatan saat form disubmit
+        document.getElementById('noteForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+            addNote();
+        });
+        
+
+        // Panggil fungsi fetchNotes untuk menampilkan daftar catatan saat halaman dimuat
+        fetchNotes();
+    </script>
+</body>
+
+</html>
